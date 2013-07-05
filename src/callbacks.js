@@ -1,9 +1,17 @@
 // String to Object options format cache
+// 用于缓存 options
 var optionsCache = {};
 
 // Convert String-formatted options into Object-formatted ones and store in cache
+// 函数作用: createOptions( 'test1 test2' );
+// { test1: true, test2: true }; 
 function createOptions( options ) {
+	// 在 optionsCache 中创建一个名为 options 的空对象
 	var object = optionsCache[ options ] = {};
+
+	// options.match( core_rnotwhite ); 利用 match 和 正则 把一个字符串中非空格字符
+	// 拆分到一个 array 里，'a b c'.match( core_rnotwhite)，会返回  [ 'a', 'b', 'c' ]
+	// 然后用 each 把每个结果添加到 object 中并设置为 true
 	jQuery.each( options.match( core_rnotwhite ) || [], function( _, flag ) {
 		object[ flag ] = true;
 	});
@@ -36,15 +44,20 @@ jQuery.Callbacks = function( options ) {
 
 	// Convert options from String-formatted to Object-formatted if needed
 	// (we check in cache first)
+	// 如果 options 是 string 类型，先检查 optionsCache 中是否已经有对应值，如果没有则
+	// 通过 createOptions 创建一个新 object，如果不是 string，则用 extend 函数返回一个
+	// object(包括 number, boolean 等等，都会返回一个 object，以保证后面可以继续进行..)
 	options = typeof options === "string" ?
 		( optionsCache[ options ] || createOptions( options ) ) :
 		jQuery.extend( {}, options );
 
 	var // Flag to know if list is currently firing
+		// 是否正在 firing 函数
 		firing,
 		// Last fire value (for non-forgettable lists)
 		memory,
 		// Flag to know if list was already fired
+		// 标记函数列表是否已经执行过了
 		fired,
 		// End of the loop when firing
 		firingLength,

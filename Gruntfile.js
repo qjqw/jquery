@@ -2,6 +2,7 @@ module.exports = function( grunt ) {
 
 	"use strict";
 
+	// 输出目录
 	var distpaths = [
 			"dist/jquery.js",
 			"dist/jquery.min.map",
@@ -132,10 +133,10 @@ module.exports = function( grunt ) {
 			tests = grunt.config([ this.name, "tests" ]);
 
 		if ( pull ) {
-			jobName = "jQuery pull <a href='https://github.com/jquery/jquery/pull/" +
+			jobName = "jQuery pull <a href='https://github.com/zeloat/jquery/pull/" +
 				pull[ 1 ] + "'>#" + pull[ 1 ] + "</a>";
 		} else {
-			jobName = "jQuery commit #<a href='https://github.com/jquery/jquery/commit/" +
+			jobName = "jQuery commit #<a href='https://github.com/zeloat/jquery/commit/" +
 				commit + "'>" + commit.substr( 0, 10 ) + "</a>";
 		}
 
@@ -385,6 +386,7 @@ module.exports = function( grunt ) {
 				}
 
 				if ( !omit ) {
+					compiled += "\n\n\/\/ form \"" + filepath + "\"\n";
 					compiled += grunt.file.read( filepath );
 				}
 			});
@@ -506,7 +508,7 @@ module.exports = function( grunt ) {
 	grunt.loadNpmTasks("grunt-contrib-uglify");
 
 	// Default grunt
-	grunt.registerTask( "default", [ "update_submodules", "selector", "build:*:*", "jshint", "uglify", "dist:*", "compare_size" ] );
+	grunt.registerTask( "default", [ "selector", "build:*:*","compare_size" ] );
 
 	// Short list as a high frequency watch task
 	grunt.registerTask( "dev", [ "selector", "build:*:*", "jshint" ] );
