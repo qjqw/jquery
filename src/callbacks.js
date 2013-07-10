@@ -41,9 +41,7 @@ function createOptions( options ) {
  */
  // Callbacks 利用了闭包原理，在 function 定义了一些内部参数，
  // 如状态标志、函数数组、fire操作。返回了一个对外的 Object，里面
- // 包含需要用到的函数。个人觉得这样并不是最好的写法，因为每次执行 Callbacks() 都要创建
- // 一个包含有 add、remove 等等函数的新对象，相对于 prototype 创建对象
- // 的方式理论上性能差一些
+ // 包含需要用到的函数。
 jQuery.Callbacks = function( options ) {
 
 	// Convert options from String-formatted to Object-formatted if needed
@@ -59,6 +57,7 @@ jQuery.Callbacks = function( options ) {
 		// 是否正在 firing 函数
 		firing,
 		// Last fire value (for non-forgettable lists)
+		// 最后一个 fire 的值
 		memory,
 		// Flag to know if list was already fired
 		// 标记函数列表是否已经执行过了
@@ -87,7 +86,7 @@ jQuery.Callbacks = function( options ) {
 			fired = true;
 			// 设置 fireIndex
 			firingIndex = firingStart || 0;
-			// 设置开始
+			// 设置开始，主要用于带 memory 参数的情况
 			firingStart = 0;
 			// 记录列表长度
 			firingLength = list.length;
@@ -105,12 +104,14 @@ jQuery.Callbacks = function( options ) {
 			// 把执行标记重新设置为 false
 			firing = false;
 			if ( list ) {
-				// 默认都是走一步的，但是如果 lock、disable、once、memory 等操作，会把
-				// stack 设置为非值，会走下面的步骤
+				// 判断 stack 是否是非值
 				if ( stack ) {
+					// 如果 stack 内有参数，就继续 fire
 					if ( stack.length ) {
 						fire( stack.shift() );
 					}
+				// 走到这一步需要同时满足 list && !stack && memory
+				// 如果设置了 memory，同时设置了 lock 或者 once，就会走这一步，以完成 memory 的作用
 				} else if ( memory ) {
 					list = [];
 				} else {
@@ -119,19 +120,27 @@ jQuery.Callbacks = function( options ) {
 			}
 		},
 		// Actual Callbacks object
+		// 对外提供的函数 Object
 		self = {
 			// Add a callback or a collection of callbacks to the list
+			// 向 list 用添加函数，可以是一个，也可以是多个
 			add: function() {
+				// 确保没有被 disable
 				if ( list ) {
 					// First, we save the current length
+					// 保存长度
 					var start = list.length;
 					(function add( args ) {
+						// 拆分 arguments，对每个参数分别处理
 						jQuery.each( args, function( _, arg ) {
 							var type = jQuery.type( arg );
 							if ( type === "function" ) {
+								// 如果参数是一个 function 并且没有 unique 参数，
+								// 也没有被添加过，就把 function push 到 list 中
 								if ( !options.unique || !self.has( arg ) ) {
 									list.push( arg );
 								}
+							// 如果传的参数是数组，递归调用 add，再次拆分
 							} else if ( arg && arg.length && type !== "string" ) {
 								// Inspect recursively
 								add( arg );
@@ -140,10 +149,22 @@ jQuery.Callbacks = function( options ) {
 					})( arguments );
 					// Do we need to add the callbacks to the
 					// current firing batch?
+					// 如果正在 firing 函数，把 firingLength 重置
+					// 这个情况主要用于在函数中再次添加函数，比如
+					// var a = $.Callbacks();
+					// a.add(function(){ 
+					// 	alert( '外部函数：' + arguments[0] );
+					// 	a.add(function(){
+					// 		alert( '内部函数：' + arguments[0] );
+					// 	});
+					// });
+					// a.fire('test');
 					if ( firing ) {
 						firingLength = list.length;
 					// With memory, if we're not firing then
 					// we should call right away
+					// 如果有 memory 参数，会在 add 函数的时候从第一个被添加的函数开始
+					// 进行一次 fire
 					} else if ( memory ) {
 						firingStart = start;
 						fire( memory );
@@ -152,6 +173,7 @@ jQuery.Callbacks = function( options ) {
 				return this;
 			},
 			// Remove a callback from the list
+			// 从 list 中删掉一个函数
 			remove: function() {
 				if ( list ) {
 					jQuery.each( arguments, function( _, arg ) {
