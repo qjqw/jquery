@@ -111,7 +111,7 @@ jQuery.Callbacks = function( options ) {
 						fire( stack.shift() );
 					}
 				// 走到这一步需要同时满足 list && !stack && memory
-				// 如果设置了 memory，同时设置了 lock 或者 once，就会走这一步，以完成 memory 的作用
+				// 如果设置了 memory，同时设置了 lock 或者 once，在 add 函数时，就会走这一步，以完成 memory 的作用
 				} else if ( memory ) {
 					list = [];
 				} else {
@@ -178,9 +178,15 @@ jQuery.Callbacks = function( options ) {
 				if ( list ) {
 					jQuery.each( arguments, function( _, arg ) {
 						var index;
+						// 用 inArray 找到结点，while 的作用是当设置了 unique 属性以后，
+						// list 中可能存在同一个函数的多个引用，所以用 while 删掉
 						while( ( index = jQuery.inArray( arg, list, index ) ) > -1 ) {
+							// 删除元素
 							list.splice( index, 1 );
 							// Handle firing indexes
+							// 如果正在 firing 函数，修改 length 和 index，
+							// 写这类功能很容易忘记内部函数的操作，比如 Callbacks 中传进的函数
+							// 又删除了 list 中的函数，这种情况比较常见 ...
 							if ( firing ) {
 								if ( index <= firingLength ) {
 									firingLength--;
@@ -197,9 +203,11 @@ jQuery.Callbacks = function( options ) {
 			// Check if a given callback is in the list.
 			// If no argument is given, return whether or not list has callbacks attached.
 			has: function( fn ) {
+				// 如果传了 fn，查找 fn 是否在 list 中，否则判断 list 是不是为空
 				return fn ? jQuery.inArray( fn, list ) > -1 : !!( list && list.length );
 			},
 			// Remove all callbacks from the list
+			// 清空函数列表
 			empty: function() {
 				list = [];
 				firingLength = 0;
@@ -215,6 +223,7 @@ jQuery.Callbacks = function( options ) {
 				return !list;
 			},
 			// Lock the list in its current state
+			// 锁住，如果没设置 memory 就会执行 disable
 			lock: function() {
 				stack = undefined;
 				if ( !memory ) {
@@ -230,9 +239,14 @@ jQuery.Callbacks = function( options ) {
 			fireWith: function( context, args ) {
 				args = args || [];
 				args = [ context, args.slice ? args.slice() : args ];
+				// 如果 lock 或者设置了 once， stack 为 undefined，
+				// 所以除了第一次执行 fire 的时候 ( !fired || stack ) 为 true，
+				// 以后的执行都为 false，不会继续执行，所以这里完成了 once 和 lock 的功能
 				if ( list && ( !fired || stack ) ) {
+					// 如果正在 firing 函数，就把数据 push 进 stack，等待上次 fire 完成后继续执行
 					if ( firing ) {
 						stack.push( args );
+					// 否则直接调用 fire
 					} else {
 						fire( args );
 					}

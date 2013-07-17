@@ -683,6 +683,7 @@ jQuery.extend({
 		return ret;
 	},
 
+	// 判断一个元素是不是在 array 中
 	inArray: function( elem, arr, i ) {
 		var len;
 
@@ -692,10 +693,15 @@ jQuery.extend({
 			}
 
 			len = arr.length;
+			// 目的是为了支持负号
+			// i ? ( i < 0 ? Math.max( 0, len + i ) : i ) : 0;
 			i = i ? i < 0 ? Math.max( 0, len + i ) : i : 0;
 
+			// 从 i 下标开始向后寻找，
 			for ( ; i < len; i++ ) {
 				// Skip accessing in sparse arrays
+				// 先判断 i 是不是 arr 的属性，[1,,,,,,,,,1] 防止直接取这种数组的属性，
+				// 会更消耗性能，理论上 ...
 				if ( i in arr && arr[ i ] === elem ) {
 					return i;
 				}
