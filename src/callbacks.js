@@ -94,8 +94,8 @@ jQuery.Callbacks = function( options ) {
 			firing = true;
 			// 执行 list 里的函数
 			for ( ; list && firingIndex < firingLength; firingIndex++ ) {
-				// 这个函数的 data 并不是 $.Callback().fire( DATA ) 传进的参数，而是通过
-				// 下面的 fireWith 传进来的值。如果设置了了 stopOnFalse，就不再继续执行后面的函数。
+				// 这个函数的 data 并不是 $.Callback().fire( SomeData ) 传进的参数，而是通过
+				// fireWith 传进来的值，已经被处理过了。如果设置了了 stopOnFalse，就不再继续执行后面的函数。
 				if ( list[ firingIndex ].apply( data[ 0 ], data[ 1 ] ) === false && options.stopOnFalse ) {
 					memory = false; // To prevent further calls using add
 					break;
@@ -238,6 +238,7 @@ jQuery.Callbacks = function( options ) {
 			// Call all callbacks with the given context and arguments
 			fireWith: function( context, args ) {
 				args = args || [];
+				// 处理参数
 				args = [ context, args.slice ? args.slice() : args ];
 				// 如果 lock 或者设置了 once， stack 为 undefined，
 				// 所以除了第一次执行 fire 的时候 ( !fired || stack ) 为 true，
@@ -254,6 +255,7 @@ jQuery.Callbacks = function( options ) {
 				return this;
 			},
 			// Call all the callbacks with the given arguments
+			// 可以传 n 个参数 ..
 			fire: function() {
 				self.fireWith( this, arguments );
 				return this;
