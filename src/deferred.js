@@ -15,22 +15,48 @@ jQuery.extend({
 				state: function() {
 					return state;
 				},
-				// always 会把 done 和 fail 都执行一遍
+				// always 会给 done 和 fail 都添加同样的函数，
+				// 不管结果怎么样，函数都会执行
 				always: function() {
 					deferred.done( arguments ).fail( arguments );
 					return this;
 				},
-				// then 的作用是可以把 down, fail 和 progress 写进一个函数中
-				// 如： $.Deferred( fn ).then( fnDown, fnFail, fnProgress );
 				then: function( /* fnDone, fnFail, fnProgress */ ) {
 					var fns = arguments;
+					// 创建了一个 Deferred 对象
 					return jQuery.Deferred(function( newDefer ) {
 						jQuery.each( tuples, function( i, tuple ) {
 							var action = tuple[ 0 ],
 								fn = jQuery.isFunction( fns[ i ] ) && fns[ i ];
 							// deferred[ done | fail | progress ] for forwarding actions to newDefer
+							// 依次调用当前 deferred 对象的 done、fail、progress 函数
 							deferred[ tuple[1] ](function() {
+								// 调用 then 传进的函数
 								var returned = fn && fn.apply( this, arguments );
+								// 如果 fn 返回了一个 deferred 或者 promise 对象，就把 newDefer 的 resolve、reject、notify 添加到
+								// returned 的相关函数中，如果 returned 触发了 done，newDefer 就执行 resolve，
+								// 类似的 fail 也是，把 returned 和 newDefer 联系起来
+								// 比如 
+								// var a, b, c;
+								// 假设 a 为 当前 deferred
+								// a = $.Deferred();
+								// b 为 returned，也就是 then 的函数中，返回的 deferred 对象
+								// b = $.Deferred();
+
+								// c 是 newDefer
+								// c = a.then(function(){
+								//     return b;
+								// });
+
+								// 给 c 加上测试函数，确认 newDefer 跟 returned 的关系
+								// c.done(function(){
+								//     alert( 'Here is newDefer' );
+								// });;
+
+								// 没效果
+								// a.resolve();
+								// 弹出 alert
+								// b.resolve();
 								if ( returned && jQuery.isFunction( returned.promise ) ) {
 									returned.promise()
 										.done( newDefer.resolve )
@@ -47,6 +73,8 @@ jQuery.extend({
 				// Get a promise for this deferred
 				// If obj is provided, the promise aspect is added to the object
 				// 如果提供了 obj，就把 promise 对象 extend 到 obj 里，否则直接返回 promise。
+				// promise 返回的是删减版的 deferred 对象，没有 reject 和 resolve 的一系列函数
+				// 意义在于限制使用者直接调用 resolve 等影响真实结果 
 				promise: function( obj ) {
 					return obj != null ? jQuery.extend( obj, promise ) : promise;
 				}
