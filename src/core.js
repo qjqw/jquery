@@ -1,8 +1,10 @@
 var
 	// The deferred used on DOM ready
+	// dom ready 以后需要执行的事件 list，以前是一个数组，后来改成了 deferred 对象
 	readyList,
 
 	// A central reference to the root jQuery(document)
+	// jQuery( document ) 的引用，防止多次使用 jQuery( document ) 消耗性能
 	rootjQuery,
 
 	// Support: IE<9
@@ -10,25 +12,32 @@ var
 	core_strundefined = typeof undefined,
 
 	// Use the correct document accordingly with window argument (sandbox)
+	// 保存常用属性的引用，可以减少查询次数，而且压缩也会更小一些
 	location = window.location,
 	document = window.document,
 	docElem = document.documentElement,
 
 	// Map over jQuery in case of overwrite
+	// 防止覆盖旧版本的 jQuery
 	_jQuery = window.jQuery,
 
 	// Map over the $ in case of overwrite
+	// 同上
 	_$ = window.$,
 
 	// [[Class]] -> type pairs
+	// 类型 map，用于类型判断
 	class2type = {},
 
 	// List of deleted data cache ids, so we can reuse them
+	// 已经删除的 data cache id 列表，保存起来以重用
 	core_deletedIds = [],
 
+	// jquery 版本，在用 grunt 合并文件的时候会替换成相对应的版本号
 	core_version = "@VERSION",
 
 	// Save a reference to some core methods
+	// 一些原生函数，保存起来可以减少代码量
 	core_concat = core_deletedIds.concat,
 	core_push = core_deletedIds.push,
 	core_slice = core_deletedIds.slice,
@@ -38,8 +47,10 @@ var
 	core_trim = core_version.trim,
 
 	// Define a local copy of jQuery
+	// jQuery 入口
 	jQuery = function( selector, context ) {
 		// The jQuery object is actually just the init constructor 'enhanced'
+		// jQuery 对象实际上是 jQuery.fn.init 创建的
 		return new jQuery.fn.init( selector, context, rootjQuery );
 	},
 
@@ -55,9 +66,11 @@ var
 	// A simple way to check for HTML strings
 	// Prioritize #id over <tag> to avoid XSS via location.hash (#9521)
 	// Strict HTML recognition (#11290: must start with <)
+	// 匹配<XXX>XXX，或者#XXXX，子表达式分别是 <XXX> 和 XXX
 	rquickExpr = /^(?:(<[\w\W]+>)[^>]*|#([\w-]*))$/,
 
 	// Match a standalone tag
+	// <tag />、<tag>、<tag></tag> 三种情况
 	rsingleTag = /^<(\w+)\s*\/?>(?:<\/\1>|)$/,
 
 	// JSON RegExp
@@ -96,37 +109,62 @@ var
 		}
 	};
 
+// jQuery 的 prototype 和 fn
+// 实际上 jQuery 对象可以通过两种方式创建， new jQuery( selector ) 或者 jQuery( selector )
+// 第一种带 new 的情况
+// 构造函数是 jQuery()，prototype 是 jQuery.prototype，
+// 第二种不带 new 的情况
+// 构造函数是 jQuery.fn.init()，prototype 是 jQuery.fn.init.prototype
+
+// 但是由于在后面有一行代码，使 jQuery.fn.init.prototype = jQuery.fn，
+// 所以两种方式基本没有区别
+
+// 至于 jQuery.fn，猜测是因为后面用到 jQuery.prototype 的地方太多，为了减少代码量弄的吧
 jQuery.fn = jQuery.prototype = {
 	// The current version of jQuery being used
+	// 当前版本
 	jquery: core_version,
 
+	// 构造函数
 	constructor: jQuery,
+	// jQuery 真正的构造函数，一切都是从这里开始的，哈哈
 	init: function( selector, context, rootjQuery ) {
 		var match, elem;
 
 		// HANDLE: $(""), $(null), $(undefined), $(false)
+		// 如果啥都没传，就没必要执行后面的内容了
 		if ( !selector ) {
 			return this;
 		}
 
 		// Handle HTML strings
+		// 参数是 string 的情况
 		if ( typeof selector === "string" ) {
+			// 判断 selector 是不是分别以 < 和 > 结尾，如果是的话直接模拟 match 函数的执行结果，创建一个数组
 			if ( selector.charAt(0) === "<" && selector.charAt( selector.length - 1 ) === ">" && selector.length >= 3 ) {
 				// Assume that strings that start and end with <> are HTML and skip the regex check
 				match = [ null, selector, null ];
-
+			// 上面的检测没通过，只能用正则了
+			// 正则匹配以后会有两种结果，
+			// 如果是标签 match结果 [ <xxxx>xxx, <xxxx>, undefined ]
+			// 如果是id   match结果 [ #xxxx, undefined, xxxx ]
 			} else {
 				match = rquickExpr.exec( selector );
 			}
 
 			// Match html or make sure no context is specified for #id
+			// 判断是不是标签，或者 id 没有 context，
+			// 换句话说，类似 $( '#id', context )，id 带着 context 是不会走 if 里的代码的
 			if ( match && (match[1] || !context) ) {
 
 				// HANDLE: $(html) -> $(array)
+				// 判断是不是标签..
 				if ( match[1] ) {
+					// 如果 context 是 jQuery 对象，把 context 指向 jQuery 对象的第一个元素
 					context = context instanceof jQuery ? context[0] : context;
 
 					// scripts is true for back-compat
+					// 创建元素，返回一个元素列表
 					jQuery.merge( this, jQuery.parseHTML(
 						match[1],
 						context && context.nodeType ? context.ownerDocument || context : document,
@@ -134,13 +172,16 @@ jQuery.fn = jQuery.prototype = {
 					) );
 
 					// HANDLE: $(html, props)
+					// 如果 context 是一个纯对象，当作属性处理
 					if ( rsingleTag.test( match[1] ) && jQuery.isPlainObject( context ) ) {
 						for ( match in context ) {
 							// Properties of context are called as methods if possible
+							// 如果 context 的 match 属性是 jQuery 对象的函数，直接执行
 							if ( jQuery.isFunction( this[ match ] ) ) {
 								this[ match ]( context[ match ] );
 
 							// ...and otherwise set as attributes
+							// 否则调用 attr，设置为一个属性
 							} else {
 								this.attr( match, context[ match ] );
 							}
@@ -155,9 +196,11 @@ jQuery.fn = jQuery.prototype = {
 
 					// Check parentNode to catch when Blackberry 4.6 returns
 					// nodes that are no longer in the document #6963
+					// 确保元素在 document 中
 					if ( elem && elem.parentNode ) {
 						// Handle the case where IE and Opera return items
 						// by name instead of ID
+						// 据说 IE 和 Opera 中会把 name 当作 id 用
 						if ( elem.id !== match[2] ) {
 							return rootjQuery.find( selector );
 						}
@@ -173,11 +216,13 @@ jQuery.fn = jQuery.prototype = {
 				}
 
 			// HANDLE: $(expr, $(...))
+			// $( 选择器，jQuery 对象 | context 为空 )
 			} else if ( !context || context.jquery ) {
 				return ( context || rootjQuery ).find( selector );
 
 			// HANDLE: $(expr, context)
 			// (which is just equivalent to: $(context).find(expr)
+			// $( 选择器， DOM元素 )
 			} else {
 				return this.constructor( context ).find( selector );
 			}
@@ -190,6 +235,7 @@ jQuery.fn = jQuery.prototype = {
 
 		// HANDLE: $(function)
 		// Shortcut for document ready
+		// 如果 $( function )，当 dom ready 处理
 		} else if ( jQuery.isFunction( selector ) ) {
 			return rootjQuery.ready( selector );
 		}
@@ -199,6 +245,8 @@ jQuery.fn = jQuery.prototype = {
 			this.context = selector.context;
 		}
 
+		// 如果 selector 是类数组，把 selector merge 到 this 中
+		// 否则直接 push 到 this 中 ...
 		return jQuery.makeArray( selector, this );
 	},
 
@@ -451,6 +499,7 @@ jQuery.extend({
 			typeof obj;
 	},
 
+	// 是否是原始对象
 	isPlainObject: function( obj ) {
 		// Must be an Object.
 		// Because of IE, we also have to check the presence of the constructor property.
@@ -496,27 +545,38 @@ jQuery.extend({
 	// context (optional): If specified, the fragment will be created in this context, defaults to document
 	// keepScripts (optional): If true, will include scripts passed in the html string
 	parseHTML: function( data, context, keepScripts ) {
+		// 检测数据
 		if ( !data || typeof data !== "string" ) {
 			return null;
 		}
+		// 判断第二个数值是不是 boolean 对象，这种情况表示，只传了
+		// data，keepScript 两个参数，所以处理了一下 keepScript 和 context
 		if ( typeof context === "boolean" ) {
 			keepScripts = context;
 			context = false;
 		}
+		// 确保 context 是个有效元素
 		context = context || document;
 
-		var parsed = rsingleTag.exec( data ),
+		var 
+			// 获取单标签的匹配结果
+			parsed = rsingleTag.exec( data ),
 			scripts = !keepScripts && [];
 
 		// Single tag
+		// 如果是个单标签，直接用 createElement 创建元素
 		if ( parsed ) {
 			return [ context.createElement( parsed[1] ) ];
 		}
 
+		// 复杂的情况用 buildFragment 处理，返回一个 fragment，
+		// 里面包含创建好的元素
 		parsed = jQuery.buildFragment( [ data ], context, scripts );
+		// ###hold 等看完 data.js
 		if ( scripts ) {
 			jQuery( scripts ).remove();
 		}
+		// 返回一个元素 list
 		return jQuery.merge( [], parsed.childNodes );
 	},
 
@@ -711,26 +771,33 @@ jQuery.extend({
 		return -1;
 	},
 
+	// 把两个数组类型的对象连接起来
+	// first 必须有 length 属性， second 可有可无，但是下标必须为数字
 	merge: function( first, second ) {
 		var l = second.length,
 			i = first.length,
 			j = 0;
 
+		// 如果 second 有 length 属性，并且为 number 类型，用 for 循环连接
 		if ( typeof l === "number" ) {
 			for ( ; j < l; j++ ) {
 				first[ i++ ] = second[ j ];
 			}
+		// 如果 second 木有 length 属性，每次添加元素时先判断是不是 undefined
 		} else {
 			while ( second[j] !== undefined ) {
 				first[ i++ ] = second[ j++ ];
 			}
 		}
 
+		// 更新 first.length
 		first.length = i;
 
 		return first;
 	},
 
+	// 检查 elems 经过 callback 处理后的结果是否与 inv 相同
+	// 并返回一个 list
 	grep: function( elems, callback, inv ) {
 		var retVal,
 			ret = [],

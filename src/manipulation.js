@@ -1,7 +1,10 @@
 function createSafeFragment( document ) {
-	var list = nodeNames.split( "|" ),
+	var 
+		// html5 标签名集合
+		list = nodeNames.split( "|" ),
 		safeFrag = document.createDocumentFragment();
 
+	// 创建 html5 标签，确保 IE 系列的 html5 标签能正常工作，以上均属猜测
 	if ( safeFrag.createElement ) {
 		while ( list.length ) {
 			safeFrag.createElement(
@@ -17,14 +20,20 @@ var nodeNames = "abbr|article|aside|audio|bdi|canvas|data|datalist|details|figca
 	rinlinejQuery = / jQuery\d+="(?:null|\d+)"/g,
 	rnoshimcache = new RegExp("<(?:" + nodeNames + ")[\\s/>]", "i"),
 	rleadingWhitespace = /^\s+/,
+	// 单标签  如：br hr
 	rxhtmlTag = /<(?!area|br|col|embed|hr|img|input|link|meta|param)(([\w:]+)[^>]*)\/>/gi,
+	// 匹配标签，子表达式匹配标签名
 	rtagName = /<([\w:]+)/,
+	// tbody 标签
 	rtbody = /<tbody/i,
+	// 判断是否有 < 或者 &XXXX;
 	rhtml = /<|&#?\w+;/,
 	rnoInnerhtml = /<(?:script|style|link)/i,
+	// checkbox 和 radio 标签
 	manipulation_rcheckableType = /^(?:checkbox|radio)$/i,
 	// checked="checked" or checked
 	rchecked = /checked\s*(?:[^=]|=\s*.checked.)/i,
+	// /javascript 或者 /ecmascript
 	rscriptType = /^$|\/(?:java|ecma)script/i,
 	rscriptTypeMasked = /^true\/(.*)/,
 	rcleanScript = /^\s*<!(?:\[CDATA\[|--)|(?:\]\]|--)>\s*$/g,
@@ -42,6 +51,8 @@ var nodeNames = "abbr|article|aside|audio|bdi|canvas|data|datalist|details|figca
 
 		// IE6-8 can't serialize link, script, style, or any html5 (NoScope) tags,
 		// unless wrapped in a div with non-breaking characters in front of it.
+		// 因为在IE6-8有些标签直接 innerHTML 是没有效果的，可以在标签前加字符
+		// 或者其它东西来避免
 		_default: jQuery.support.htmlSerialize ? [ 0, "", "" ] : [ 1, "X<div>", "</div>"  ]
 	},
 	safeFragment = createSafeFragment( document ),
@@ -531,13 +542,21 @@ jQuery.each({
 	};
 });
 
+// 大体相当于 getElementsByTagName，但是由于 fragment 木有  getElementsByTagName 函数，
+// 所以写了 getAll，你懂的~
 function getAll( context, tag ) {
 	var elems, elem,
 		i = 0,
+		// 从 context 中获取 tag 的列表
 		found = typeof context.getElementsByTagName !== core_strundefined ? context.getElementsByTagName( tag || "*" ) :
 			typeof context.querySelectorAll !== core_strundefined ? context.querySelectorAll( tag || "*" ) :
 			undefined;
 
+	// 被这段代码迷惑了好久 ！！！！！
+	// 因为只有一个元素同时没有 getElementsByTagName 和 querySelectorAll，下面这段代码才起作用
+	// 但是没有这样的元素（fragment也必有其中一种，旧 IE 中有 getElementsByTagName ,而 chrome 等
+	// 有 querySelectorAll）。可以说这段代码是没作用的。
+	// 查了下最新的 jQuery 代码和修改记录，果然这段是多余的 T.T
 	if ( !found ) {
 		for ( found = [], elems = context.childNodes || context; (elem = elems[i]) != null; i++ ) {
 			if ( !tag || jQuery.nodeName( elem, tag ) ) {
@@ -548,12 +567,15 @@ function getAll( context, tag ) {
 		}
 	}
 
+	// 如果没传 tag 或者 tag 和 context 的标签名相等，把 context 也作为结果返回
+	// 否则直接返回 found
 	return tag === undefined || tag && jQuery.nodeName( context, tag ) ?
 		jQuery.merge( [ context ], found ) :
 		found;
 }
 
 // Used in buildFragment, fixes the defaultChecked property
+// 如果 elem 是 checkbox 或者 radio，设置 defaultChecked 为 checked 值
 function fixDefaultChecked( elem ) {
 	if ( manipulation_rcheckableType.test( elem.type ) ) {
 		elem.defaultChecked = elem.checked;
@@ -616,12 +638,14 @@ jQuery.extend({
 		return clone;
 	},
 
+	// 把 elems 放入一个  fragment 中，以前版本有缓存的，现在木有了 ..
 	buildFragment: function( elems, context, scripts, selection ) {
 		var j, elem, contains,
 			tmp, tag, tbody, wrap,
 			l = elems.length,
 
 			// Ensure a safe fragment
+			// 创建 fragment
 			safe = createSafeFragment( context ),
 
 			nodes = [],
@@ -633,38 +657,56 @@ jQuery.extend({
 			if ( elem || elem === 0 ) {
 
 				// Add nodes directly
+				// 如果是 object 类型，把 elem 放到 nodes 中
 				if ( jQuery.type( elem ) === "object" ) {
 					jQuery.merge( nodes, elem.nodeType ? [ elem ] : elem );
 
 				// Convert non-html into a text node
+				// 如果 elem 不是 html 标签或者 &xxx; 创建一个 textNode 放到 nodes 中
 				} else if ( !rhtml.test( elem ) ) {
 					nodes.push( context.createTextNode( elem ) );
 
 				// Convert html into DOM nodes
+				// 上面两个检查都没通过，说明是 html 代码
 				} else {
+					// 创建一个 div，放到 fragment 中，因为 fragment 没有 innerHTML 功能
 					tmp = tmp || safe.appendChild( context.createElement("div") );
 
 					// Deserialize a standard representation
+					// 如果 elem 有标签名，就把标签名字取出 ["",""] 是为了防止后面的部分报错
 					tag = ( rtagName.exec( elem ) || ["", ""] )[1].toLowerCase();
+					// 如果 tag 在 wrapMap 中，取到对应的 wrap
 					wrap = wrapMap[ tag ] || wrapMap._default;
 
+					// 用 innerHTML 向创建的 temp div 中加入元素，如果标签是一个子元素
+					// 如 td option 等，还要加上父元素，因为某些标签是不能直接 innerHTML 的
 					tmp.innerHTML = wrap[1] + elem.replace( rxhtmlTag, "<$1></$2>" ) + wrap[2];
 
 					// Descend through wrappers to the right content
+					// 因为在标签中加入了父元素，所以需要把 tmp 指向元素的父元素
 					j = wrap[0];
 					while ( j-- ) {
 						tmp = tmp.lastChild;
 					}
 
 					// Manually add leading whitespace removed by IE
+					// IE 的 innerHTML 不支持字符串开始的空白字符，会自动 remove 掉，
+					// 所以这判断了是否支持字符串开始的空白和 elem 是否有空白字符
+					// 如果符合条件，就创建一个 textNode 放到 nodes 中
 					if ( !jQuery.support.leadingWhitespace && rleadingWhitespace.test( elem ) ) {
 						nodes.push( context.createTextNode( rleadingWhitespace.exec( elem )[0] ) );
 					}
 
 					// Remove IE's autoinserted <tbody> from table fragments
+					// 删掉 IE 系列自动添加的 tbody
 					if ( !jQuery.support.tbody ) {
 
 						// String was a <table>, *may* have spurious <tbody>
+						// 如果 elem 第一个标签是 table，并且 elem 中没写 tbody，则
+						// elem = tmp.firstChild
+						// 否则判断是否是 thead 或者 tfoot，是则
+						// elem = tmp
+						// 整句的作用是确保 elem 指向 table 元素
 						elem = tag === "table" && !rtbody.test( elem ) ?
 							tmp.firstChild :
 
@@ -675,18 +717,23 @@ jQuery.extend({
 
 						j = elem && elem.childNodes.length;
 						while ( j-- ) {
+							// 如果 table 的子元素中有 tbody 元素，并且 元素中没有内容，删掉 tbody
 							if ( jQuery.nodeName( (tbody = elem.childNodes[j]), "tbody" ) && !tbody.childNodes.length ) {
 								elem.removeChild( tbody );
 							}
 						}
 					}
 
+					// 向 nodes 中添加所有子元素的引用，这时候其实已经得到了一个
+					// 元素列表
 					jQuery.merge( nodes, tmp.childNodes );
 
 					// Fix #12392 for WebKit and IE > 9
+					// 表示没太看懂 bug 的意思，估计要看完 after 才能懂了
 					tmp.textContent = "";
 
 					// Fix #12392 for oldIE
+					// 同上
 					while ( tmp.firstChild ) {
 						tmp.removeChild( tmp.firstChild );
 					}
@@ -698,6 +745,7 @@ jQuery.extend({
 		}
 
 		// Fix #11356: Clear elements from fragment
+		// 删掉 tmp
 		if ( tmp ) {
 			safe.removeChild( tmp );
 		}
@@ -713,21 +761,28 @@ jQuery.extend({
 
 			// #4087 - If origin and destination elements are the same, and this is
 			// that element, do not do anything
+			// 根据 bug 注释，这是为了处理 $("#x").insertBefore("#x") 
 			if ( selection && jQuery.inArray( elem, selection ) !== -1 ) {
 				continue;
 			}
 
+			// ###hold 不知道有什么用
 			contains = jQuery.contains( elem.ownerDocument, elem );
 
 			// Append to fragment
+			// 取到 elem 中的 script 标签..
+			// 并把 elem append 到 safe 中
 			tmp = getAll( safe.appendChild( elem ), "script" );
 
 			// Preserve script evaluation history
+			// ###hold 呃，跳了N个函数，好深...
+			// 看完 data.js 再回来看吧 ..
 			if ( contains ) {
 				setGlobalEval( tmp );
 			}
 
 			// Capture executables
+			// 把 script 标签添加到 scripts 中
 			if ( scripts ) {
 				j = 0;
 				while ( (elem = tmp[ j++ ]) ) {
@@ -738,6 +793,7 @@ jQuery.extend({
 			}
 		}
 
+		// 释放
 		tmp = null;
 
 		return safe;

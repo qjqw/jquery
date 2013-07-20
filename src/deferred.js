@@ -83,6 +83,8 @@ jQuery.extend({
 			deferred = {};
 
 		// Keep pipe for back-compat
+		// 这段看似无用的代码实际上是为了兼容以前版本弄的，
+		// 在早期版本中， then 和 pipe 是不同的
 		promise.pipe = promise.then;
 
 		// Add list-specific methods
@@ -145,16 +147,23 @@ jQuery.extend({
 	// Deferred helper
 	when: function( subordinate /* , ..., subordinateN */ ) {
 		var i = 0,
+			// 把 arguments 对象转换成一个数组
 			resolveValues = core_slice.call( arguments ),
 			length = resolveValues.length,
 
 			// the count of uncompleted subordinates
+			// ( length !== 1 || ( subordinate && jQuery.isFunction( subordinate.promise ) ) ) ? length: 0
+			// 计算有效参数的长度
 			remaining = length !== 1 || ( subordinate && jQuery.isFunction( subordinate.promise ) ) ? length : 0,
 
 			// the master Deferred. If resolveValues consist of only a single Deferred, just use that.
+			// 如果只传进一个 deferred 对象，则直接返回这个对象的 promise
+			// 否则创建一个新的对象，并做一系列处理
 			deferred = remaining === 1 ? subordinate : jQuery.Deferred(),
 
 			// Update function for both resolve and progress values
+			// updateFunc 的作用是利用闭包保存参数，而 return 的函数才是主体 ..
+			// 整个函数是为了给 deferred 绑定相关函数，判断什么时候需要执行 resolveWith
 			updateFunc = function( i, contexts, values ) {
 				return function( value ) {
 					contexts[ i ] = this;
@@ -175,7 +184,10 @@ jQuery.extend({
 			progressContexts = new Array( length );
 			resolveContexts = new Array( length );
 			for ( ; i < length; i++ ) {
+				// 先判断参数是否是 deferred 对象
 				if ( resolveValues[ i ] && jQuery.isFunction( resolveValues[ i ].promise ) ) {
+					// 给每个传进的 deferred 对象的 done、fail、progress 添加对应函数
+					// 为了判断什么时候需要触发 deferred 的相关函数
 					resolveValues[ i ].promise()
 						.done( updateFunc( i, resolveContexts, resolveValues ) )
 						.fail( deferred.reject )
@@ -187,6 +199,7 @@ jQuery.extend({
 		}
 
 		// if we're not waiting on anything, resolve the master
+		// 如果没有参数或者参数是无效值，直接 resolve deferred
 		if ( !remaining ) {
 			deferred.resolveWith( resolveContexts, resolveValues );
 		}
